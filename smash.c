@@ -16,24 +16,23 @@ struct node
 
 char error_message[30] = "An error has occured\n"; //error checking
 
+void smash_cd(char *path);
+char **smash_parse_input(char *line, char **tokens);
+int smash_path(char **tokens, struct node *head);
+void smash_fork(char **tokens);
+void smash_execute(char **tokens, char *line, struct node *head);
+void smash_redirect(char *arg, struct node *path);
+int count(char **tokens);
 /*
 * cd method
 */
-int smash_cd(char **tokens, char *args[])
+void smash_cd(char *path)
 {
-
-    if (tokens[1] == NULL)
+    chdir(path);
+    if (chdir(path) != 0)
     {
         write(STDERR_FILENO, error_message, strlen(error_message));
     }
-    else
-    {
-        if (chdir(tokens[1]) != 0)
-        {
-            write(STDERR_FILENO, error_message, strlen(error_message));
-        }
-    }
-    return 1;
 }
 
 /*
@@ -48,15 +47,14 @@ void smash_redirect(char *arg, struct node *path)
 }
 
 /*
-* Parse input
+* Parse input interactive
 */
 #define DELIM " \t\r\n\a"
-char **smash_parse_input(char *line)
+char **smash_parse_input(char *line, char **tokens)
 {
-    int size = 1000;
-    char **tokens = malloc(size * sizeof(char *)); //realloc if bufsize too small
-    int iter = 0;
-    char *tok;
+    // tokens = malloc(size * sizeof(char *)); //realloc if bufsize too small
+    //int tok = 0;
+    int tok = 0;
 
     //malloc-ing error
     if (tokens == NULL)
@@ -64,244 +62,354 @@ char **smash_parse_input(char *line)
         write(STDERR_FILENO, error_message, strlen(error_message));
         exit(1);
     }
+    line = strtok(line, DELIM);
 
-    tok = strtok(line, DELIM);
-    while (tok != NULL)
+    printf("tokens[0] = %s\n", tokens[0]);
+
+    while (line != NULL)
     {
-        tokens[iter] = tok;
-        iter++;
-
-        //if buffer size too small
-        if (iter >= size)
+        tokens[tok] = malloc(strlen(line) * sizeof(char));
+        tokens[tok] = line;
+        if (tokens[tok] == NULL)
         {
-            size += 1000;
-            tokens = realloc(tokens, size * sizeof(char *));
-            //realloc error
-            if (tokens == NULL)
-            {
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                exit(1);
-            }
+            //error message
         }
-        tok = strtok(NULL, DELIM);
+        tok++;
+        line = strtok(NULL, DELIM);
     }
-    tokens[iter] = NULL;
+    tokens[tok] = NULL;
+
     return tokens;
 }
 
-// void smash_exit(char *line)
-// {
-//     printf("NOW HERE  ");
+/*
+*batch mode parse
+*/
+// #define DELIM " \t\r\n\a"
 
+// char **smash_parse_batch(FILE *f)
+// {
+//     int size = 1000;
+//     char **tokens = malloc(size * sizeof(char *)); //realloc if bufsize too small
+//     int tok = 0;
+//     int ret = 0;
+//     char line[500], bb[1000] = "";
+//     //malloc-ing error
+//     if (tokens == NULL)
+//     {
+//         write(STDERR_FILENO, error_message, strlen(error_message));
+//         exit(1);
+//     }
+//     if (f == NULL)
+//         printf("File not opened");
+//     else
+//     {
+//         printf("File opened successfully\n");
+//         while ((ret = fscanf(f, " %s ", line))) // use of fscanf
+//         {
+//             if (ret == EOF)
+//             {
+//                 break;
+//             }
+
+//             strcat(bb, line);
+//             strcat(bb, "\n");
+//         }
+//         char *tok = strtok(bb, DELIM);
+//         while (tok != NULL)
+//         {
+//             printf("%s", tok);
+//             tok = strtok(NULL, DELIM); // NULL instead of pointer
+//         }
+//     }
+
+//     tokens[tok] = NULL;
+//     return tokens;
 // }
 
 //add, remove, clear
-struct node *smash_path(char **tokens, char *new_path[])
+
+int printLinkedList(struct node *path_list)
 {
-    struct node *head = NULL;
-    struct node *newNode, *temp;
-    // struct node *prev;
-    int i;
-    char *data= "/bin/";
-    head = (struct node *)malloc(sizeof(struct node));
-    head->next = NULL;
-    strcpy(head->data, data);
-    //if the path arguments are not add or remove or clear
 
-    int path_iter = 0;
-    for (path_iter = 0; path_iter < sizeof(tokens); path_iter++)
+    struct node *curr = path_list;
+    printf("%s -> ", curr->data);
+
+    while (curr->next != NULL)
     {
-        strcat(data, tokens[path_iter]); // path = "/bin/...."
+        curr = curr->next;
+        printf("%s -> ", curr->data);
     }
+    printf("\n");
 
-    int tok_iter = 1; // tokens[0] = path, tokens[1] = add...etc
-    while (tok_iter < sizeof(tokens))
-    {
-        if ((strcmp(tokens[tok_iter], "add") != 0) || (strcmp(tokens[tok_iter], "remove") != 0) || (strcmp(tokens[tok_iter], "clear") != 0))
-        {
-            write(STDERR_FILENO, error_message, strlen(error_message));
-        }
-        else if ((strcmp(tokens[tok_iter], "add") == 0))
-        {
-            temp = head;
-            for (i = 1; i < sizeof(tokens); i++)
-            {
-                newNode = (struct node *)malloc(sizeof(struct node));
-                strcpy(newNode->data = data, data);
-                newNode->next = NULL;
-                temp->next = newNode;
-                temp = temp->next;
-            }
-        }
-        else if ((strcmp(tokens[tok_iter], "remove") == 0))
-        {
-            // prev = head;
-            temp = head;
-            if (temp != NULL && temp->data == data)
-            {
-                head = temp->next; // Changed head
-                free(temp);        // free old head
-            }
-            while (temp != NULL && (strcmp(temp->data, data) != 0))
-            {
-
-                // prev = temp;
-                temp = temp->next;
-                if (temp == NULL)
-                {
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                }
-            }
-        }
-        else
-        { //clear
-            head = NULL;
-        }
-        tok_iter++;
-    }
-    return head;
+    return 0;
 }
 
-void smash_ls(struct node *path, char *args[])
+int smash_add(char *path, struct node *head)
 {
-    if (access((char *)path, X_OK))
+    struct node *newNode = (struct node *)malloc(sizeof(struct node));
+    newNode->data = path;
+    struct node *temp = head->next;
+
+    head->next = newNode;
+    newNode->next = temp;
+
+    return 0;
+}
+
+int smash_remove(char *path, struct node *head)
+{
+
+    int found = 0;
+
+    struct node *prev = (struct node *)malloc(sizeof(struct node));
+    struct node *temp = head->next;
+
+    while (head->next != NULL)
     {
-        printf("if ls");
-        execv((char *)path, args);
+        prev = head;
+        head = head->next;
+        if (strcmp(head->data, path) == 0)
+        {
+            prev->next = head->next;
+            head = prev;
+            found = 1;
+        }
+    }
+    if (found == 0)
+    {
+        //err;
+    }
+
+    return 0;
+}
+
+int smash_clear(struct node *head)
+{
+    head->next = NULL;
+    printLinkedList(head);
+    return 0;
+}
+int smash_path(char **tokens, struct node *head)
+{
+    int cnt = count(tokens);
+    char *path = NULL;
+    if (cnt < 2 || cnt > 3)
+    {
+        //err;
+        return -1;
+    }
+
+    //if the path arguments are not add or remove or clear
+    if ((strcmp(tokens[1], "add") != 0) && (strcmp(tokens[1], "remove") != 0) && (strcmp(tokens[1], "clear") != 0))
+    {
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        return -1;
+    }
+    printf("%d", cnt);
+    if ((strcmp(tokens[1], "clear") == 0) && cnt == 2)
+    {
+        printf("im here ");
+        smash_clear(head);
+        return 0;
+    }
+    path = malloc(strlen(tokens[2]));
+    strcpy(path, tokens[2]);
+    if ((strcmp(tokens[1], "add") == 0) && cnt == 3)
+    {
+        smash_add(path, head);
+        return 0;
+    }
+    if ((strcmp(tokens[1], "remove") == 0) && cnt == 3)
+    {
+        smash_remove(path, head);
+        return 0;
+    }
+
+    return 0;
+}
+
+void smash_fork(char **tokens, struct node *head)
+{
+    pid_t pid;
+    int i = 0;
+
+    char *path = malloc(sizeof(char) * 100);
+    strcpy(path, tokens[0]);
+
+    while ( head != NULL ){
+
+        
+    }
+    pid = fork();
+
+    //fork error
+    if (pid == -1)
+    {
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        exit(1);
+    }
+    else if (pid == 0)
+    {
+        if (tokens[0] != NULL)
+        {
+            printf("Printing tokens \n");
+            for (int i = 0; i < 10; i++)
+            {
+                printf("tokens[%d] : %s \n", i, tokens[i]);
+            }
+            char *arr[] = {"ls", "-l", NULL};
+            execv("/bin/ls", tokens);
+            if (execv(tokens[0], tokens) == -1)
+            {
+                write(STDERR_FILENO, error_message, strlen(error_message));
+            }
+        }
     }
     else
     {
-        printf("else ls ");
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        wait(NULL);
+    }
+    free(path);
+}
+void smash_execute(char **tokens, char *line, struct node *head)
+{
+    int i = 0;
+    char *path = malloc(sizeof(char) * 100);
+    strcpy(path, "/bin/");
+    char *path2 = malloc(sizeof(char) * 100);
+
+    // while (tokens[i] != NULL)
+    // {
+    //     //how to filter and put only the path name?
+    //     // if( strcmp(tokens[i], ) ){
+    //     strcat(path, tokens[i]);
+    //     //;
+    //     path2 = strdup(path);
+    //     printf("path to execv is : %s \n", path2);
+    //     i++;
+    //     // }
+    // }
+
+    //multiple commands means ; or pll means &
+    // printf("Printing tokens \n");
+    // for (int i = 0; i < 10; i++)
+    // {
+    //     printf("tokens[%d] : %s \n", i, tokens[i]);
+    // }
+    //built-ins
+    if (strcmp(tokens[0], "cd") == 0)
+    {
+        if (tokens[1] == NULL || (tokens[2] != NULL))
+        {
+            write(STDERR_FILENO, error_message, strlen(error_message));
+        }
+        strcat(path, tokens[1]);
+        strcat(path, "/");
+        path2 = strdup(path);
+        // // printf("path to execv is : %s \n", path2);
+
+        // if (chdir(path2) != 0)
+        // {
+        //     write(STDERR_FILENO, error_message, strlen(error_message));
+        // }
+        smash_cd(path2);
+    }
+    else if (strcmp(tokens[0], "path") == 0)
+    {
+        smash_path(tokens, head);
+    }
+    else if (strcmp(tokens[0], "exit") == 0)
+    {
+        if (tokens[1] != NULL)
+        {
+            write(STDERR_FILENO, error_message, strlen(error_message));
+        }
+        exit(0);
+    }
+    else
+    {
+        smash_fork(tokens);
     }
 }
 
-void smash_fork(char **tokens, char *args[])
+int count(char **tokens)
 {
-    pid_t child_pid;
-    int iter = 0;
-
-    while (iter < sizeof(tokens))
+    int i = 0;
+    while (tokens[i] != NULL)
     {
-        child_pid = fork();
-        //fork error
-        if (child_pid == -1)
-        {
-            write(STDERR_FILENO, error_message, strlen(error_message));
-            exit(1);
-            break;
-        }
-        else if (child_pid == 0)
-        {
-           
-            execv(tokens[iter], args);
-
-            /* If execv returns, it must have failed. */
-            write(STDERR_FILENO, error_message, strlen(error_message));
-            exit(0);
-        }
-        else
-        {
-            wait(NULL);
-        }
+        printf("thes is tokens[i] %s\n", tokens[i]);
+        i++;
     }
+    return i;
 }
 
 int main(int argc, const char *argv[])
 {
 
-    //int status = 0;
     char *line = NULL; //interactive mode
     size_t len = 0;
-    //builtins: exit, cd, path
+    struct node *head = (struct node *)malloc(sizeof(struct node));
 
-    //path
-    // struct node *path;
+    struct node *default_path = (struct node *)malloc(sizeof(struct node));
 
-    char **tokens = NULL;
-    int iter = 0;
+    head->next = default_path;
+    head->data = "head";
+    char *default_p = (char *)malloc(strlen("/bin"));
+    strcpy(default_p, "/bin");
+    default_path->data = default_p;
+    default_path->next = NULL;
+    printLinkedList(head);
+    //FILE *f;
 
-    //too many args
-    if (argc > 2)
-    {
-        write(STDERR_FILENO, error_message, strlen(error_message));
-        exit(1);
-    }
+    char **tokens = (char **)malloc(1000 * sizeof(char *));
+
+    //enter batch mode
+    // if (argc >= 2)
+    //{
+    //TODO: is it argv[1]???
+    //  f = fopen(argv[1], "r");
+    //if (f == NULL)
+    //{
+    //  write(STDERR_FILENO, error_message, strlen(error_message));
+    //}
+    //tokens = smash_parse_batch(f);
+    // }
+    //
+
     while (1)
     {
         printf("smash> ");
+        printf("\n");
+        printLinkedList(head);
+        fflush(stdout);
         getline(&line, &len, stdin);
-        //TODO: batch version
-        tokens = smash_parse_input(line);
-
-        while (iter < sizeof(tokens))
+        // printf("line is : %s \n", line);
+        if (line == NULL || tokens == NULL)
         {
-            //builtins
-            if (strstr(line, "exit") != NULL)
-            {
-                if (strcmp(line, "exit") != 0)
-                {
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                }
-                else
-                {
-                    exit(0);
-                }
-                break;
-            }
-            else if (strstr(line, "cd") != NULL)
-            {
-                char *args[sizeof(tokens)];
-                if (sizeof(tokens) == 1 || sizeof(tokens) > 2)
-                {
-                    //err
-                }
-                int i = 0;
-                while (i < sizeof(tokens))
-                {
-                    args[i] = tokens[iter + 1];
-                    i++;
-                }
-
-                smash_cd(tokens, args);
-                break;
-            }
-
-            else if (strstr(line, "path") != NULL)
-            {
-                char *args[sizeof(tokens)];
-                if (sizeof(tokens) == 1)
-                {
-                    //err
-                }
-                int i = 0;
-                while (i < sizeof(tokens))
-                {
-                    args[i] = tokens[iter + 1];
-                    i++;
-                }
-
-                smash_path(tokens, args);
-                break;
-            }
-            else
-            {
-
-                //TODO: delimited by space so how do i get all of the args in token???
-                char *args[sizeof(tokens)];
-
-                int i = 1;
-                while (i < sizeof(tokens))
-                {
-                    args[i] = tokens[i + 1];
-                    i++;
-                }
-                smash_fork(tokens, args);
-            }
-            iter++;
+            write(STDERR_FILENO, error_message, strlen(error_message));
         }
-    }
+        else
+        {
+            //mult
+            // if (strstr(line, ";"))
+            // {
+            //     //parallel
+            //     if (strstr(line, "&"))
+            //     {
+            tokens = smash_parse_input(line, tokens);
+            // }
+            // }
+        }
 
+        // printf("Printing tokens \n");
+        // for (int i = 0; i < 10; i++)
+        // {
+        //     printf("tokens[%d] : %s \n", i, tokens[i]);
+        // }
+
+        smash_execute(tokens, line, head); //pll and mult commands will be send separately in this func
+    }
     free(tokens);
 
     return 0;
